@@ -10,7 +10,9 @@
 	$minimumTweetLengde = 20;
 	$maksimumTweetLengde = 140;
 
-    $ugyldigeKarakterer = array('Æ', 'Ø', 'Å', 'æ', 'ø', 'å')
+    // ugyldige karakterer. Disse vil gi feilmelding og vil IKKE sendes til twitter
+    $forbudteKarakterer = array('Æ', 'Ø', 'Å', 'æ', 'ø', 'å');
+
 	// setter antallet tweeter synlige i DOM.
 	$antallSynligeTweeter = 10;
 
