@@ -42,11 +42,11 @@
 			}
 		}
 		if ($tweetLengde < $minimumTweetLengde) {
-			echo 'Tweet er for kort ';
+			echo 'Tweet er for kort <script>console.log("Tweet er for kort");</script>';
 		} elseif ($tweetLengde > $maksimumTweetLengde) {
-			echo 'Tweet er for lang ';
+			echo 'Tweet er for lang <script>console.log("Tweet er for lang");</script>';
 		} elseif ($ugyldigeKarakterer) {
-			echo 'Tweet inneholder ugyldige karakterer ';
+			echo 'Tweet inneholder ugyldige karakterer <script>console.log("Tweet inneholder ugyldige karakterer");</script>';
 		} else {
 
 				// URL - Ikke endre denne, om mindre man skal gjøre annet enn å opprette twitterposter.
@@ -67,13 +67,33 @@
 				$response = $twitter->performRequest( true, array( CURLOPT_SSL_VERIFYHOST => 0, CURLOPT_SSL_VERIFYPEER => 0) );
 
 				// <pre> - uformattert tekst
-				echo '<pre>';
-				print_r(json_decode( $response, true) );
+				// echo '<pre>';
+				// print_r(json_decode( $response, true) );
+				$lagretTweet = json_decode( $response, true);
+
+				return $lagretTweet;
 			}
+			
 		}
 
-	evaluerTwitterPost ($postTilTwitter);
-
-
+	$lagretTweet = evaluerTwitterPost ($postTilTwitter);
 
 ?>
+<script>console.log("<?php echo $lagretTweet; ?>");</script>
+
+<h2>Tweet logg:</h2>
+
+	<img src="<?php echo $lagretTweet['user']['profile_image_url']; ?>" />
+
+	<a href="https://twitter.com/<?php echo $lagretTweet['user']['screen_name']; ?>" target="_blank">
+	<b>@<?php echo $lagretTweet['user']['screen_name']; ?></b>
+	</a>
+	
+	<!-- dato på tweet -->
+	<p><?php echo $lagretTweet['created_at']; ?></p>
+	<br />
+
+	<p>Tekstinnhold:</p>
+	<br />
+	<?php echo $lagretTweet['text']; ?>
+	<br />
