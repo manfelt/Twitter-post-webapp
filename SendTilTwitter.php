@@ -19,7 +19,7 @@
 		$maksimumTweetLengde = 140;
 		$forbudteKarakterer = array('Æ', 'Ø', 'Å', 'æ', 'ø', 'å');
 
-		// funksjon som splitter en streng til en array. Nødvendig ettersom str_splint() ikke tar hensyn til unicode.
+		// funksjon som splitter en streng til en array. Nødvendig ettersom str_splint() ikke tar hensyn til unicode. Regex.
 		function splittStrengTilUnicode($streng, $lengde = 1) {
 			$strengSplitt = preg_split('~~u', $streng, -1, PREG_SPLIT_NO_EMPTY);
 			if ($lengde > 1) {
@@ -48,6 +48,7 @@
 		} elseif ($ugyldigeKarakterer) {
 			echo 'Tweet inneholder ugyldige karakterer <script>console.log("Tweet inneholder ugyldige karakterer");</script>';
 		} else {
+				//Inne i denne blokken utføres selve API-behandlingen.
 
 				// URL - Ikke endre denne, om mindre man skal gjøre annet enn å opprette twitterposter.
 				$url = 'https://api.twitter.com/1.1/statuses/update.json';
@@ -69,7 +70,22 @@
 				// <pre> - uformattert tekst
 				// echo '<pre>';
 				// print_r(json_decode( $response, true) );
-				$lagretTweet = json_decode( $response, true);
+				// echo '<pre>;
+
+				$lagretTweet = json_decode($response, true);
+				$fil = file_get_contents('logg.json');
+				$data = json_decode($fil, true);
+
+				$matrise = array( "laget"=>$lagretTweet['created_at'],
+				"tekstinnhold"=>$lagretTweet['text'], "bilde"=>$lagretTweet['user']['profile_image_url'],
+				"navn"=>$lagretTweet['user']['screen_name']);
+
+				$data["tweeter"] = array_values($data["tweeter"]);
+				array_push($data["tweeter"], $matrise);
+				file_put_contents("logg.json", json_encode($data) );
+
+				//$lagreTilJsonFil = file_put_contents('logg.json', $filData , FILE_APPEND | LOCK_EX);
+				
 
 				return $lagretTweet;
 			}
