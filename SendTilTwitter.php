@@ -1,18 +1,23 @@
 <?php
+	// 'session_start()' kreves for at '$_SESSION[]' skal virke.
+	session_start();
 	// inkluderer filer inn i scriptet. Fra 'innstillinger.php' skaffes verdier som 
 	// uavhengig kan stilles inn ettersom nødvendig.
 	// 'TwitterApiExchange.php' er en wrapper referert til av 'twitter developer' som 'Twitter-API-PHP': 
 	// https://developer.twitter.com/en/docs/twitter-api/tools-and-libraries
-	require('innstillinger.php');
+	require_once('innstillinger.php');
 	require_once('TwitterAPIExchange.php');
-
 
 	// verdien til denne variabelen er innholdet som postes og sendes til twitter. 
     // Den skaffes direkte fra input feltet hos 'index.php'
 	$postTilTwitter = $_POST['postTweet'];
-
 	
-	function evaluerTwitterPost ($postTilTwitter){
+	// Den største funksjonen i webappen. Tar for seg flere ansvarsroller enn det den i ettertid burde.
+	// Bør kutes inn i mindre funksjoner for egne tilpassede nytter, som f.eks en egen funksjon for JSON lagring.
+	function evaluerTwitterPost ($postTilTwitter) {
+		// setter session for index. Returnerer twitterposten for at den skal console logge den effektivt.
+		$_SESSION['tweetTilKonsoll'] = $postTilTwitter;
+		// integer for å holde styr på lengden i tweeten når den sammenliknes med krav.
 		$tweetLengde = strlen($postTilTwitter);
 		$ugyldigeKarakterer = false;
 		$minimumTweetLengde = 20;
@@ -33,20 +38,43 @@
 			return $strengSplitt;
 		}
 
+		// twitterposten spaltes inn i matrise.
 		$postTilTwitterKarakterer = splittStrengTilUnicode($postTilTwitter);
 
+		// funksjon som spesifikt lagrer feilmeldinger inn i JSON databasen. 
+		// 1. JSON filen åpnes og dekodes, 2. en assosiativ matrise tar imot verdier fra twitter responsen.
+		// 3. '$data' som er hele JSON filen dekodet, blir pushet med de nye matriseverdiene. Alt lagres tilbake til JSON fil.
+		function lagreFeilmeldingTilJson($feilType, $postTilTwitter) {
+			$fil = file_get_contents('logg.json');
+			$data = json_decode($fil, true);
+
+			$matrise = array("type"=>"feilmelding", "laget"=>date('d m H:i:s Y'),
+			"tekstinnhold"=>$postTilTwitter, "bilde"=>' ', "feiltype"=>$feilType, "navn"=> ' ');
+
+			$data["tweeter"] = array_values($data["tweeter"]);
+			array_push($data["tweeter"], $matrise);
+			file_put_contents("logg.json", json_encode($data, JSON_UNESCAPED_UNICODE) );
+			
+			// for å evt. tilbakegi feilmelding til 'index' for console logging.
+			$_SESSION['feilTekst'] = $feilType;
+		}
+
+		// går gjennom twitterposten og sjekker for ugyldige karakterer.
 		foreach ($postTilTwitterKarakterer as $karakter) {
 			if ( in_array($karakter, $forbudteKarakterer )) {
 				$ugyldigeKarakterer = true;
 				break;
 			}
-		}
+		} // sjekker om twitterposten går gjennom kriteriene. 
 		if ($tweetLengde < $minimumTweetLengde) {
-			echo 'Tweet er for kort <script>console.log("Tweet er for kort");</script>';
+			$feilType = "Tweet er for kort ";
+			lagreFeilmeldingTilJson($feilType, $postTilTwitter);
 		} elseif ($tweetLengde > $maksimumTweetLengde) {
-			echo 'Tweet er for lang <script>console.log("Tweet er for lang");</script>';
+			$feilType = "Tweet er for lang ";
+			lagreFeilmeldingTilJson($feilType, $postTilTwitter);
 		} elseif ($ugyldigeKarakterer) {
-			echo 'Tweet inneholder ugyldige karakterer <script>console.log("Tweet inneholder ugyldige karakterer");</script>';
+			$feilType = "Tweet inneholder ugyldige karakterer  ";
+			lagreFeilmeldingTilJson($feilType, $postTilTwitter);
 		} else {
 				//Inne i denne blokken utføres selve API-behandlingen.
 
@@ -67,26 +95,28 @@
 				$twitter->setPostfields( $apiData );
 				$response = $twitter->performRequest( true, array( CURLOPT_SSL_VERIFYHOST => 0, CURLOPT_SSL_VERIFYPEER => 0) );
 
-				// <pre> - uformattert tekst
-				// echo '<pre>';
-				// print_r(json_decode( $response, true) );
-				// echo '<pre>;
-
+				// responsen fra API-behandlingen ligger lagret i denne variabelen.
 				$lagretTweet = json_decode($response, true);
-				$fil = file_get_contents('logg.json');
-				$data = json_decode($fil, true);
 
-				$matrise = array( "laget"=>$lagretTweet['created_at'],
-				"tekstinnhold"=>$lagretTweet['text'], "bilde"=>$lagretTweet['user']['profile_image_url'],
-				"navn"=>$lagretTweet['user']['screen_name']);
-
-				$data["tweeter"] = array_values($data["tweeter"]);
-				array_push($data["tweeter"], $matrise);
-				file_put_contents("logg.json", json_encode($data) );
-
-				//$lagreTilJsonFil = file_put_contents('logg.json', $filData , FILE_APPEND | LOCK_EX);
+				// sjekker om svaret fra twitter inneholder en feilmelding, hvis ikke går scriptet videre
+				// til å lagre twittermeldingen i JSON logg.
+				if(array_key_exists("errors", $lagretTweet)) {
+					$feilType = $lagretTweet['errors']['0']['message'];
+					echo $feilType . "<script>console.log('$feilType');</script>";
+					lagreFeilmeldingTilJson($feilType, $postTilTwitter);
+				} else {
+					$fil = file_get_contents('logg.json');
+					$data = json_decode($fil, true);
+	
+					$matrise = array("type"=>"post", "laget"=>$lagretTweet['created_at'],
+					"tekstinnhold"=>$lagretTweet['text'], "bilde"=>$lagretTweet['user']['profile_image_url'],
+					"navn"=>$lagretTweet['user']['screen_name']);
+	
+					$data["tweeter"] = array_values($data["tweeter"]);
+					array_push($data["tweeter"], $matrise);
+					file_put_contents("logg.json", json_encode($data) );
+				}
 				
-
 				return $lagretTweet;
 			}
 			
@@ -94,22 +124,7 @@
 
 	$lagretTweet = evaluerTwitterPost ($postTilTwitter);
 
+	// omdirigerer tilbake til index.php.
+	header("Location: index.php");
+
 ?>
-<script>console.log("<?php echo $lagretTweet; ?>");</script>
-
-<h2>Tweet logg:</h2>
-
-	<img src="<?php echo $lagretTweet['user']['profile_image_url']; ?>" />
-
-	<a href="https://twitter.com/<?php echo $lagretTweet['user']['screen_name']; ?>" target="_blank">
-	<b>@<?php echo $lagretTweet['user']['screen_name']; ?></b>
-	</a>
-	
-	<!-- dato på tweet -->
-	<p><?php echo $lagretTweet['created_at']; ?></p>
-	<br />
-
-	<p>Tekstinnhold:</p>
-	<br />
-	<?php echo $lagretTweet['text']; ?>
-	<br />
