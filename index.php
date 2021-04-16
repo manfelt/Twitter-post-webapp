@@ -63,7 +63,7 @@
 
     // i foreach løkken brukes 'array_slice()' for å kutte rett til en indeksert plass i listen.
     // deretter printer den alle relevante verdier for hver x-te twitterpost.
-    foreach ( array_slice($dekodetJsonFil['tweeter'], $indeksStartPosisjon) as $tweet ) : ?>
+    foreach ( array_reverse(array_slice($dekodetJsonFil['tweeter'], $indeksStartPosisjon)) as $tweet ) : ?>
         <div class = "<?php echo $tweet['type']?>">
         <img src="<?php echo $tweet['bilde']; ?>" />
         <a href="https://twitter.com/<?php echo $tweet['navn']; ?>" target="_blank">
